@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Message Maker</title>
+<style>
+  :root { color-scheme: light; --ink:#172033; --muted:#667085; --blue:#315efb; --line:#e4e7ec; --bg:#f5f7fb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+  main { width:min(100% - 28px,620px); margin:0 auto; padding:28px 0 40px; }
+  header { margin-bottom:22px; }
+  h1 { font-size:clamp(1.55rem,5vw,2rem); margin:0 0 6px; letter-spacing:-.03em; }
+  header p { color:var(--muted); margin:0; }
+  .card { background:white; border:1px solid var(--line); border-radius:16px; padding:20px; margin:14px 0; box-shadow:0 6px 20px #17203308; }
+  h2 { font-size:1.05rem; margin:0 0 15px; }
+  label { display:block; font-weight:650; font-size:.92rem; margin:0 0 7px; }
+  input, select, button { font:inherit; }
+  input, select { width:100%; min-height:46px; border:1px solid #cfd5df; border-radius:10px; padding:10px 12px; background:white; color:var(--ink); }
+  input:focus, select:focus { outline:3px solid #315efb2a; border-color:var(--blue); }
+  .field { margin-bottom:15px; }
+  button { border:0; border-radius:10px; padding:11px 14px; font-weight:700; cursor:pointer; }
+  button:focus-visible { outline:3px solid #315efb55; outline-offset:2px; }
+  .primary { background:var(--blue); color:white; width:100%; min-height:46px; }
+  .secondary { background:#eef2ff; color:#2443b8; }
+  .delete { background:#fff0ef; color:#b42318; padding:7px 10px; font-size:.85rem; }
+  .student-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #eef0f4; }
+  .student-row:last-child { border-bottom:0; }
+  .student-row span { overflow-wrap:anywhere; }
+  .add-row { display:grid; grid-template-columns:1fr auto; gap:8px; }
+  .add-row button { white-space:nowrap; }
+  .message { white-space:pre-line; overflow-wrap:anywhere; background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:15px; min-height:112px; line-height:1.75; }
+  .actions { display:grid; grid-template-columns:1fr; gap:9px; margin-top:12px; }
+  .hint { color:var(--muted); font-size:.86rem; margin:10px 0 0; }
+  .status { min-height:1.25em; color:#067647; font-size:.9rem; margin-top:10px; }
+  .empty { color:var(--muted); font-size:.9rem; padding:5px 0; }
+  @media (max-width:420px) { main { width:min(100% - 20px,620px); padding-top:20px; } .card { padding:16px; } .add-row { grid-template-columns:1fr; } .add-row button { width:100%; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Class Message Maker</h1>
+    <p>Select a student, enter the topic, and copy your class message.</p>
+  </header>
+
+  <section class="card">
+    <h2>1. Students</h2>
+    <div id="studentList" aria-live="polite"></div>
+    <div class="field" style="margin-top:15px;margin-bottom:0">
+      <label for="newStudent">Add a student</label>
+      <div class="add-row">
+        <input id="newStudent" maxlength="80" placeholder="Student name" autocomplete="off">
+        <button id="addStudent" class="secondary" type="button">Add student</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Create class message</h2>
+    <div class="field">
+      <label for="student">Student</label>
+      <select id="student"></select>
+    </div>
+    <div class="field">
+      <label for="topic">Class topic</label>
+      <input id="topic" maxlength="300" placeholder="e.g. Python functions">
+    </div>
+    <button id="generate" class="primary" type="button">Generate message</button>
+  </section>
+
+  <section class="card">
+    <h2>3. Copy message</h2>
+    <div id="message" class="message" aria-live="polite">Date - —
+Topic - —
+Student - —
+1hr</div>
+    <div class="actions">
+      <button id="copy" class="primary" type="button">Copy message</button>
+    </div>
+    <div id="status" class="status" role="status"></div>
+    <p class="hint">No history, spreadsheet, account connection, or database. Student changes last only while this page remains open; refreshing resets the list.</p>
+  </section>
+</main>
+<script>
+(() => {
+  let students = ["Dheemanth", "Eshaan", "Swaran"];
+  const list = document.getElementById("studentList");
+  const select = document.getElementById("student");
+  const nameInput = document.getElementById("newStudent");
+  const topicInput = document.getElementById("topic");
+  const message = document.getElementById("message");
+  const status = document.getElementById("status");
+  let generated = "";
+
+  function renderStudents() {
+    const selected = select.value;
+    list.innerHTML = "";
+    if (!students.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No students yet. Add one below.";
+      list.appendChild(empty);
+    }
+    students.forEach((name, index) => {
+      const row = document.createElement("div");
+      row.className = "student-row";
+      const label = document.createElement("span");
+      label.textContent = name;
+      const remove = document.createElement("button");
+      remove.className = "delete";
+      remove.type = "button";
+      remove.textContent = "Delete";
+      remove.setAttribute("aria-label", "Delete " + name);
+      remove.addEventListener("click", () => {
+        students.splice(index, 1);
+        renderStudents();
+        status.textContent = name + " removed from the list.";
+      });
+      row.append(label, remove);
+      list.appendChild(row);
+    });
+    select.innerHTML = "";
+    if (!students.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "Add a student first";
+      select.appendChild(option);
+      select.disabled = true;
+    } else {
+      select.disabled = false;
+      students.forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
+      select.value = students.includes(selected) ? selected : students[0];
+    }
+  }
+
+  function addStudent() {
+    const name = nameInput.value.trim();
+    if (!name) { status.textContent = "Enter a student name first."; nameInput.focus(); return; }
+    if (students.some(s => s.toLowerCase() === name.toLowerCase())) {
+      status.textContent = "That student is already in the list.";
+      nameInput.focus();
+      return;
+    }
+    students.push(name);
+    nameInput.value = "";
+    renderStudents();
+    select.value = name;
+    status.textContent = name + " added.";
+    nameInput.focus();
+  }
+
+  function generateMessage() {
+    const student = select.value;
+    const topic = topicInput.value.trim();
+    if (!student) { status.textContent = "Please add and select a student."; return; }
+    if (!topic) { status.textContent = "Enter the class topic first."; topicInput.focus(); return; }
+    const date = new Date().toLocaleDateString("en-GB", {
+      day:"2-digit", month:"2-digit", year:"numeric"
+    });
+    generated = `Date - ${date}\nTopic - ${topic}\nStudent - ${student}\n1hr`;
+    message.textContent = generated;
+    status.textContent = "Message generated. Ready to copy.";
+  }
+
+  document.getElementById("addStudent").addEventListener("click", addStudent);
+  nameInput.addEventListener("keydown", e => { if (e.key === "Enter") addStudent(); });
+  document.getElementById("generate").addEventListener("click", generateMessage);
+  document.getElementById("copy").addEventListener("click", async () => {
+    if (!generated) { status.textContent = "Generate a message first."; return; }
+    try {
+      await navigator.clipboard.writeText(generated);
+      status.textContent = "Copied! You can paste the message anywhere.";
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = generated;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      status.textContent = ok ? "Copied! You can paste the message anywhere." : "Copy was blocked. Please select and copy the message manually.";
+    }
+  });
+  renderStudents();
+})();
+</script>
+</body>
+</html>
